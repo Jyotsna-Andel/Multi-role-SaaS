@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Roles are scoped to an organization (tenant).
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+model Organization {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  createdAt DateTime   @default(now())
+  users     User[]
+  projects  Project[]
+  auditLogs AuditLog[]
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String
+  passwordHash  String
+  role          Role           @default(MEMBER)
+  isActive      Boolean        @default(true)
+  /// Bumped to invalidate every outstanding access token for this user.
+  tokenVersion  Int            @default(0)
+  failedLogins  Int            @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  orgId         String
+  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+  projects      Project[]      @relation("ProjectCreator")
+  auditLogs     AuditLog[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([orgId, role])
+}
+
+/// Opaque refresh tokens; only a SHA-256 hash is stored. Rotated on every use.
+model RefreshToken {
+  id         String    @id @default(uuid())
+  tokenHash  String    @unique
+  /// All tokens descending from one login share a family; reuse revokes the family.
+  familyId   String
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  orgId       String
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?         @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([orgId, status])
+}
+
+/// Append-only: the API exposes no update/delete for audit entries.
+model AuditLog {
+  id        String       @id @default(uuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime     @default(now())
+
+  @@index([orgId, createdAt(sort: Desc), id])
+  @@index([orgId, action])
+}

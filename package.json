@@ -1,0 +1,19 @@
+{
+  "name": "multi-role-saas",
+  "private": true,
+  "description": "Multi-tenant, multi-role SaaS starter: Next.js App Router + NestJS + Postgres/Prisma + Redis",
+  "scripts": {
+    "infra:up": "docker compose up -d --wait",
+    "infra:down": "docker compose down",
+    "install:all": "npm install --prefix apps/api && npm install --prefix apps/web",
+    "db:migrate": "npm run prisma:migrate --prefix apps/api",
+    "db:seed": "npm run prisma:seed --prefix apps/api",
+    "db:reset": "npm run prisma:reset --prefix apps/api",
+    "setup": "node scripts/setup-env.mjs && npm run infra:up && npm run install:all && npm run db:migrate && npm run db:seed",
+    "dev:api": "npm run start:dev --prefix apps/api",
+    "dev:web": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/api && npm run build --prefix apps/web",
+    "demo": "node scripts/demo.mjs",
+    "ui-check": "node scripts/ui-check.mjs"
+  }
+}

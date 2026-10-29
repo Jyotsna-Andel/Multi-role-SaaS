@@ -1,0 +1,7 @@
+# Store and check out text files with LF on every OS (avoids CRLF churn in diffs).
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
